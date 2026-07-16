@@ -1,0 +1,16 @@
+# .github/workflows/docs.yml
+name: Build API Docs
+on:
+  push:
+    branches: [main]
+
+jobs:
+  build-docs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: npx @redocly/cli build-docs openapi.yaml -o docs/index.html
+      - uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./docs
