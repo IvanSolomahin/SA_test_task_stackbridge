@@ -1,16 +1,31 @@
-# .github/workflows/docs.yml
+# .github/workflows/main.yml
 name: Build API Docs
+
 on:
   push:
-    branches: [main]
+    branches: [master]      
+    paths:
+      - 'openapi.yaml'
+      - '.github/workflows/main.yml'
+
+permissions:
+  contents: write            # нужно для пуша в gh-pages
 
 jobs:
   build-docs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - run: npx @redocly/cli build-docs openapi.yaml -o docs/index.html
-      - uses: peaceiris/actions-gh-pages@v3
+
+      - name: Build OpenAPI docs
+        run: npx @redocly/cli build-docs openapi.yaml -o docs/index.html
+
+      - name: Disable Jekyll
+        run: touch docs/.nojekyll  
+
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v4
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./docs
+          publish_branch: gh-pages   # явно указываем ветку публикации
