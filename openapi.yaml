@@ -1,0 +1,146 @@
+openapi: 3.0.3
+info:
+  title: Petrushka Zelenaya - Partner Stores API
+  version: 1.1.0
+  description: 'API для получения списка магазинов-партнёров. У разных магазинов разная
+    структура блока доставки: слот времени (METRO, Ашан) или диапазон в минутах (ВкусВилл).'
+paths:
+  /partners/stores:
+    get:
+      summary: Получить список магазинов-партнёров
+      description: 'Возвращает список магазинов-партнёров. Тип блока доставки определяется
+        полем delivery.type: ''timeSlot'' — конкретный временной интервал, ''duration''
+        — диапазон в минутах (быстрая доставка).'
+      operationId: getPartnerStores
+      tags:
+      - Partners
+      responses:
+        '200':
+          description: Успешный ответ со списком магазинов-партнёров
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PartnerStoresResponse'
+              example:
+                stores:
+                - id: metro
+                  name: METRO
+                  logoUrl: https://cdn.petrushka.ru/partners/logos/metro.png
+                  delivery:
+                    type: timeSlot
+                    label: Ближайшая доставка
+                    timeSlot: сегодня 21:00-23:00
+                  externalUrl: https://online.metro-cc.ru/
+                - id: auchan
+                  name: Ашан
+                  logoUrl: https://cdn.petrushka.ru/partners/logos/auchan.png
+                  delivery:
+                    type: timeSlot
+                    label: Ближайшая доставка
+                    timeSlot: сегодня 18:00-20:00
+                  externalUrl: https://www.auchan.ru/
+                - id: vkusvill
+                  name: ВкусВилл
+                  logoUrl: https://cdn.petrushka.ru/partners/logos/vkusvill.png
+                  delivery:
+                    type: duration
+                    label: Быстрая доставка
+                    minMinutes: 20
+                    maxMinutes: 60
+                  externalUrl: https://vkusvill.ru/
+        '500':
+          description: Внутренняя ошибка сервера
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+components:
+  schemas:
+    PartnerStoresResponse:
+      type: object
+      properties:
+        stores:
+          type: array
+          items:
+            $ref: '#/components/schemas/PartnerStore'
+      required:
+      - stores
+    PartnerStore:
+      type: object
+      properties:
+        id:
+          type: string
+          example: vkusvill
+        name:
+          type: string
+          example: ВкусВилл
+        logoUrl:
+          type: string
+          format: uri
+        delivery:
+          oneOf:
+          - $ref: '#/components/schemas/DeliveryTimeSlot'
+          - $ref: '#/components/schemas/DeliveryDuration'
+          discriminator:
+            propertyName: type
+            mapping:
+              timeSlot: '#/components/schemas/DeliveryTimeSlot'
+              duration: '#/components/schemas/DeliveryDuration'
+        externalUrl:
+          type: string
+          format: uri
+          description: Ссылка на внешний ресурс магазина, на которую переходит пользователь
+            при клике на плашку
+      required:
+      - id
+      - name
+      - logoUrl
+      - delivery
+      - externalUrl
+    DeliveryTimeSlot:
+      type: object
+      description: Доставка с конкретным временным слотом (например METRO, Ашан)
+      properties:
+        type:
+          type: string
+          enum:
+          - timeSlot
+        label:
+          type: string
+          example: Ближайшая доставка
+        timeSlot:
+          type: string
+          example: сегодня 21:00-23:00
+      required:
+      - type
+      - label
+      - timeSlot
+    DeliveryDuration:
+      type: object
+      description: Быстрая доставка с диапазоном в минутах (например ВкусВилл)
+      properties:
+        type:
+          type: string
+          enum:
+          - duration
+        label:
+          type: string
+          example: Быстрая доставка
+        minMinutes:
+          type: integer
+          example: 20
+        maxMinutes:
+          type: integer
+          example: 60
+      required:
+      - type
+      - label
+      - minMinutes
+      - maxMinutes
+    Error:
+      type: object
+      properties:
+        code:
+          type: string
+        message:
+          type: string
