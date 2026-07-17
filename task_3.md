@@ -1,1 +1,1 @@
-![[architecture.png]]
+![architecture.png](images/architecture.png)
