@@ -12,4 +12,4 @@
 
 
 Выполнил Соломахин Иван
-[Смотреть резюме](./Соломахин_Иван_SA.pdf)
+[Смотреть резюме](https://drive.google.com/file/d/1PNtVQnAxBTHRkyfdXQR-ZzuHUVxLXC2f/view?usp=sharing)
