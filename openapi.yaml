@@ -1,19 +1,33 @@
 openapi: 3.0.3
+
 info:
   title: Petrushka Zelenaya - Partner Stores API
-  version: 1.1.0
-  description: 'API для получения списка магазинов-партнёров. У разных магазинов разная
-    структура блока доставки: слот времени (METRO, Ашан) или диапазон в минутах (ВкусВилл).'
+  version: 1.2.0
+  description: >
+    API для получения списка магазинов-партнёров.
+    Формат блока доставки зависит от типа магазина:
+    временной слот или диапазон времени в минутах.
+
 paths:
   /partners/stores:
     get:
-      summary: Получить список магазинов-партнёров
-      description: 'Возвращает список магазинов-партнёров. Тип блока доставки определяется
-        полем delivery.type: ''timeSlot'' — конкретный временной интервал, ''duration''
-        — диапазон в минутах (быстрая доставка).'
-      operationId: getPartnerStores
       tags:
-      - Partners
+        - Partners
+      summary: Получить список магазинов-партнёров
+      description: >
+        Возвращает список партнёров с учётом фильтров и параметров пагинации.
+        Тип блока доставки определяется полем delivery.type:
+        timeSlot — конкретный временной интервал,
+        duration — диапазон в минутах.
+      operationId: getPartnerStores
+
+      parameters:
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/City'
+        - $ref: '#/components/parameters/DeliveryType'
+        - $ref: '#/components/parameters/AvailableOnly'
+
       responses:
         '200':
           description: Успешный ответ со списком магазинов-партнёров
@@ -23,124 +37,317 @@ paths:
                 $ref: '#/components/schemas/PartnerStoresResponse'
               example:
                 stores:
-                - id: metro
-                  name: METRO
-                  logoUrl: https://cdn.petrushka.ru/partners/logos/metro.png
-                  delivery:
-                    type: timeSlot
-                    label: Ближайшая доставка
-                    timeSlot: сегодня 21:00-23:00
-                  externalUrl: https://online.metro-cc.ru/
-                - id: auchan
-                  name: Ашан
-                  logoUrl: https://cdn.petrushka.ru/partners/logos/auchan.png
-                  delivery:
-                    type: timeSlot
-                    label: Ближайшая доставка
-                    timeSlot: сегодня 18:00-20:00
-                  externalUrl: https://www.auchan.ru/
-                - id: vkusvill
-                  name: ВкусВилл
-                  logoUrl: https://cdn.petrushka.ru/partners/logos/vkusvill.png
-                  delivery:
-                    type: duration
-                    label: Быстрая доставка
-                    minMinutes: 20
-                    maxMinutes: 60
-                  externalUrl: https://vkusvill.ru/
+                  - id: metro
+                    name: METRO
+                    logoUrl: https://cdn.petrushka.ru/partners/logos/metro.png
+                    externalUrl: https://online.metro-cc.ru/
+                    delivery:
+                      type: timeSlot
+                      label: Ближайшая доставка
+                      startAt: '2026-07-17T21:00:00+03:00'
+                      endAt: '2026-07-17T23:00:00+03:00'
+
+                  - id: auchan
+                    name: Ашан
+                    logoUrl: https://cdn.petrushka.ru/partners/logos/auchan.png
+                    externalUrl: https://www.auchan.ru/
+                    delivery:
+                      type: timeSlot
+                      label: Ближайшая доставка
+                      startAt: '2026-07-17T18:00:00+03:00'
+                      endAt: '2026-07-17T20:00:00+03:00'
+
+                count: 2
+                total: 125
+                pageInfo:
+                  hasNextPage: true
+                  nextCursor: eyJpZCI6ImF1Y2hhbiJ9
+
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+
         '500':
-          description: Внутренняя ошибка сервера
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
+          $ref: '#/components/responses/InternalServerError'
+
 components:
+  parameters:
+    Limit:
+      name: limit
+      in: query
+      required: false
+      description: Максимальное количество магазинов в ответе
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 20
+        example: 20
+
+    Cursor:
+      name: cursor
+      in: query
+      required: false
+      description: Курсор следующей страницы, полученный в pageInfo.nextCursor
+      schema:
+        type: string
+        example: eyJpZCI6ImF1Y2hhbiJ9
+
+    City:
+      name: city
+      in: query
+      required: false
+      description: Код города, для которого нужно получить доступных партнёров
+      schema:
+        type: string
+        minLength: 2
+        maxLength: 50
+        example: spb
+
+    DeliveryType:
+      name: deliveryType
+      in: query
+      required: false
+      description: Фильтр по типу доставки
+      schema:
+        type: string
+        enum:
+          - timeSlot
+          - duration
+        example: duration
+
+    AvailableOnly:
+      name: availableOnly
+      in: query
+      required: false
+      description: Вернуть только магазины, доступные для заказа
+      schema:
+        type: boolean
+        default: false
+        example: true
+
+  responses:
+    BadRequest:
+      description: Некорректные параметры запроса
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            code: VALIDATION_ERROR
+            message: Параметр limit должен быть числом от 1 до 100
+            requestId: 18e1c81a-7e56-4f54-91f7-8b857aaa5c96
+
+    TooManyRequests:
+      description: Превышен лимит запросов
+      headers:
+        Retry-After:
+          description: Время до следующего допустимого запроса в секундах
+          schema:
+            type: integer
+            minimum: 1
+            example: 60
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            code: RATE_LIMIT_EXCEEDED
+            message: Слишком много запросов. Повторите попытку позже.
+            requestId: 18e1c81a-7e56-4f54-91f7-8b857aaa5c96
+
+    InternalServerError:
+      description: Внутренняя ошибка сервера
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            code: INTERNAL_ERROR
+            message: Не удалось получить список магазинов
+            requestId: 18e1c81a-7e56-4f54-91f7-8b857aaa5c96
+
   schemas:
     PartnerStoresResponse:
       type: object
+      additionalProperties: false
+      required:
+        - stores
+        - count
+        - total
+        - pageInfo
       properties:
         stores:
           type: array
+          description: Магазины на текущей странице
           items:
             $ref: '#/components/schemas/PartnerStore'
+
+        count:
+          type: integer
+          minimum: 0
+          description: Количество магазинов в текущем ответе
+          example: 2
+
+        total:
+          type: integer
+          minimum: 0
+          description: >
+            Общее количество магазинов, соответствующих переданным фильтрам.
+            Значение не зависит от limit и cursor.
+          example: 125
+
+        pageInfo:
+          $ref: '#/components/schemas/PageInfo'
+
+    PageInfo:
+      type: object
+      additionalProperties: false
       required:
-      - stores
+        - hasNextPage
+        - nextCursor
+      properties:
+        hasNextPage:
+          type: boolean
+          description: Есть ли следующая страница результатов
+          example: true
+
+        nextCursor:
+          type: string
+          nullable: true
+          description: >
+            Курсор для передачи в следующем запросе.
+            Возвращается null, если следующей страницы нет.
+          example: eyJpZCI6ImF1Y2hhbiJ9
+
     PartnerStore:
       type: object
+      additionalProperties: false
+      required:
+        - id
+        - name
+        - logoUrl
+        - externalUrl
+        - delivery
       properties:
         id:
           type: string
+          pattern: '^[a-z0-9-]+$'
+          description: Уникальный идентификатор магазина
           example: vkusvill
+
         name:
           type: string
+          minLength: 1
+          description: Отображаемое название магазина
           example: ВкусВилл
+
         logoUrl:
           type: string
           format: uri
+          description: URL логотипа магазина
+          example: https://cdn.petrushka.ru/partners/logos/vkusvill.png
+
+        externalUrl:
+          type: string
+          format: uri
+          description: Внешняя ссылка магазина
+          example: https://vkusvill.ru/
+
         delivery:
           oneOf:
-          - $ref: '#/components/schemas/DeliveryTimeSlot'
-          - $ref: '#/components/schemas/DeliveryDuration'
+            - $ref: '#/components/schemas/DeliveryTimeSlot'
+            - $ref: '#/components/schemas/DeliveryDuration'
           discriminator:
             propertyName: type
             mapping:
               timeSlot: '#/components/schemas/DeliveryTimeSlot'
               duration: '#/components/schemas/DeliveryDuration'
-        externalUrl:
-          type: string
-          format: uri
-          description: Ссылка на внешний ресурс магазина, на которую переходит пользователь
-            при клике на плашку
-      required:
-      - id
-      - name
-      - logoUrl
-      - delivery
-      - externalUrl
+
     DeliveryTimeSlot:
       type: object
-      description: Доставка с конкретным временным слотом (например METRO, Ашан)
+      additionalProperties: false
+      description: Доставка в конкретный временной слот
+      required:
+        - type
+        - label
+        - startAt
+        - endAt
       properties:
         type:
           type: string
           enum:
-          - timeSlot
+            - timeSlot
+
         label:
           type: string
+          minLength: 1
           example: Ближайшая доставка
-        timeSlot:
+
+        startAt:
           type: string
-          example: сегодня 21:00-23:00
-      required:
-      - type
-      - label
-      - timeSlot
+          format: date-time
+          description: Начало временного интервала доставки в ISO 8601
+          example: '2026-07-17T21:00:00+03:00'
+
+        endAt:
+          type: string
+          format: date-time
+          description: Конец временного интервала доставки в ISO 8601
+          example: '2026-07-17T23:00:00+03:00'
+
     DeliveryDuration:
       type: object
-      description: Быстрая доставка с диапазоном в минутах (например ВкусВилл)
+      additionalProperties: false
+      description: Быстрая доставка с диапазоном времени в минутах
+      required:
+        - type
+        - label
+        - minMinutes
+        - maxMinutes
       properties:
         type:
           type: string
           enum:
-          - duration
+            - duration
+
         label:
           type: string
+          minLength: 1
           example: Быстрая доставка
+
         minMinutes:
           type: integer
+          minimum: 1
+          description: Минимальное время доставки в минутах
           example: 20
+
         maxMinutes:
           type: integer
+          minimum: 1
+          description: Максимальное время доставки в минутах
           example: 60
-      required:
-      - type
-      - label
-      - minMinutes
-      - maxMinutes
+
     Error:
       type: object
+      additionalProperties: false
+      required:
+        - code
+        - message
       properties:
         code:
           type: string
+          description: Машиночитаемый код ошибки
+          example: INTERNAL_ERROR
+
         message:
           type: string
+          description: Человекочитаемое описание ошибки
+          example: Не удалось получить список магазинов
+
+        requestId:
+          type: string
+          description: Идентификатор запроса для диагностики
+          example: 18e1c81a-7e56-4f54-91f7-8b857aaa5c96
